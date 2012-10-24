@@ -247,7 +247,7 @@ Tactic Notation "refines_cases" tactic(first) ident(c) :=
   | Case_aux c "R_if" | Case_aux c "R_app" | Case_aux c "R_abs"
   | Case_aux c "R_mult" ].
 
-
+Hint Constructors Refines.
 
 (* ###################################################################### *)
 (** ** Properties of Typing *)
@@ -585,6 +585,25 @@ Proof with eato.
     apply T_Mult. assumption. assumption.
 Qed.
 
+Theorem refinement_implies_welltypedness_right : forall Gamma v u T,
+  Refines Gamma v u T ->
+  has_type Gamma u T.
+Proof with eato.
+  intros.
+  refines_cases (induction H) Case; try (assumption).
+  Case "R_base".
+    apply T_Hole.
+  Case "R_if".
+    apply T_If.
+    assumption. assumption. assumption. 
+  Case "R_app".
+    eapply T_App. apply IHRefines1. apply IHRefines2.
+  Case "R_abs".
+    eapply T_Abs. apply IHRefines.
+  Case "R_mult".
+    apply T_Mult. assumption. assumption.
+Qed.
+
 Theorem extension_aliasing : forall Gamma x y z (T1:ty) (T2:ty),
   beq_id x y = true ->
   (extend (extend Gamma x T1) y T2) z = (extend Gamma y T2) z.
@@ -691,60 +710,141 @@ Proof with eauto.
     simpl. apply R_mult...
 Qed.
 
+
+Theorem type_uniqueness : forall Gamma e T1 T2,
+  has_type Gamma e T1 ->
+  has_type Gamma e T2 ->
+  T1 = T2.
+Proof with eauto.
+  intros.
+  generalize dependent T2.
+  (* why doesn't 'solve by inversion' work below? *)
+  has_type_cases (induction H) Case; intros; try (solve by inversion).
+  Case "T_Var".
+    inversion H0; subst.
+    rewrite -> H3 in H.
+    inversion H...
+  Case "T_Abs".
+    inversion H0; subst.
+    f_equal.
+    eapply IHhas_type...
+  Case "T_App".
+    inversion H1; subst.
+
+    assert ((ty_arrow T1 T2) = (ty_arrow T3 T0)) as Harrow.
+    eapply IHhas_type1...
+
+    inversion Harrow...
+  Case "T_Nat".
+    inversion H0; subst...
+  Case "T_Mult".
+    inversion H1; subst...
+  Case "T_Succ".
+    inversion H0; subst...
+  Case "T_Pred".
+    inversion H0; subst...
+  Case "T_True".
+    inversion H0; subst...
+  Case "T_False".
+    inversion H0; subst...
+  Case "T_If".
+    inversion H2; subst...
+  Case "T_Hole".
+    inversion H0; subst...
+Qed.
+
+Theorem trans_type_refinement : forall Gamma e1 e2 e3 T1 T2,
+  Refines Gamma e1 e2 T1 ->
+  Refines Gamma e2 e3 T2 ->
+  T1 = T2.
+Proof with eauto.
+  intros.
+  generalize dependent T2.
+  generalize dependent e3.
+  refines_cases (induction H) Case; intros; try (solve by inversion).
+  Case "R_base".
+    inversion H0; subst...
+    inversion H1; subst...
+  
+    inversion H1; subst...
+  Case "R_refl".
+    inversion H0; subst; try (eapply type_uniqueness)...
+    (* tm_if *)
+    eapply T_If; try (eapply refinement_implies_welltypedness)...
+    (* tm_app *)
+    eapply T_App; try (eapply refinement_implies_welltypedness)...
+    (* tm_abs *)
+    eapply T_Abs; try (eapply refinement_implies_welltypedness)...
+    (* tm_mult *)
+    eapply T_Mult; try (eapply refinement_implies_welltypedness)...
+  Case "R_if".
+    inversion H2; subst; try (inversion H3; subst)...
+   Case "R_app".
+     eapply refinement_implies_welltypedness in H1.
+     inversion H1; subst.
+     eapply refinement_implies_welltypedness_right in H.
+     eapply refinement_implies_welltypedness_right in H0.
+     assert ((ty_arrow T1 T2) = (ty_arrow T3 T0)) as ArrowEq.
+       eapply type_uniqueness...
+     inversion ArrowEq...
+   Case "R_abs".
+     eapply refinement_implies_welltypedness_right in H.
+     eapply refinement_implies_welltypedness in H0.
+     inversion H0; subst.
+     f_equal.
+     eapply type_uniqueness...
+   Case "R_mult".
+     eapply refinement_implies_welltypedness in H1.
+     inversion H1; subst...
+Qed.
+
 Theorem transitivity_of_refines : forall Gamma a b c T,
   Refines Gamma a b T ->
   Refines Gamma b c T ->
   Refines Gamma a c T.
 Proof with eauto.
   intros Gamma a b c T Hab Hbc.
-  refines_cases (induction Hab) Case.
-  Case "R_base".
-    inversion Hbc; subst.
-    apply R_base...
-    apply R_base...
-  Case "R_refl".
-    inversion Hbc; subst...
+    generalize dependent c.
+  refines_cases (induction Hab) Case; intros c Hbc; inversion Hbc; subst...
   Case "R_if".
-    inversion Hbc; subst...
-    apply R_base...
-    apply T_If.
-    eapply refinement_implies_welltypedness. apply Hab1.
-    eapply refinement_implies_welltypedness. apply Hab2.
-    eapply refinement_implies_welltypedness. apply Hab3.
-
-    eapply R_if...
-    admit.
+    SCase "c hole".
+      apply R_base...
+      apply T_If.
+      eapply refinement_implies_welltypedness. apply Hab1.
+      eapply refinement_implies_welltypedness. apply Hab2.
+      eapply refinement_implies_welltypedness. apply Hab3.
   Case "R_app".
-    inversion Hbc; subst.
     SCase "tm_hole".
-     apply R_base. 
+     apply R_base...
      eapply T_App.
      eapply refinement_implies_welltypedness. apply Hab1.
      eapply refinement_implies_welltypedness. apply Hab2.
-    SCase "tm_app".
-     eapply R_app...
+    SCase "c is tm_app".
+      eapply R_app...
+      SSCase "ty_arrow".
+        inversion Hbc; subst...
+        eapply IHHab1.
 
-   admit.
+        assert (T1 = T3) as Teq.
+          eapply trans_type_refinement. apply Hab2. apply H8.
 
+        rewrite -> Teq...
+      SSCase "argument".
+        inversion Hbc; subst...
+        eapply IHHab2.
+        assert (T1 = T3) as Teq.
+          eapply trans_type_refinement. apply Hab2. apply H8.
+        rewrite -> Teq...
   Case "R_abs".
-    inversion Hbc; subst.
     SCase "tm_hole".
       apply R_base...
       apply T_Abs. eapply refinement_implies_welltypedness. apply Hab.
-    SCase "tm_abs".
-      apply R_abs...
-    admit.
-
   Case "R_mult".    
-    inversion Hbc; subst.
     SCase "tm_hole".
       apply R_base.
       eapply T_Mult.
         eapply refinement_implies_welltypedness. apply Hab1.
         eapply refinement_implies_welltypedness. apply Hab2.
-    SCase "tm_mult".
-      apply R_mult...
-    admit.
 Qed.
 
 
