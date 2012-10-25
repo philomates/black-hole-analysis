@@ -218,10 +218,6 @@ Inductive Refines : context -> tm -> tm -> ty -> Prop :=
     R_base : forall Gamma e T,
       has_type Gamma e T ->
       Refines Gamma e (tm_hole T) T
-(*  | R_trans : forall Gamma e1 e2 e3 T, 
-      Refines Gamma e1 e2 T ->
-      Refines Gamma e2 e3 T ->
-      Refines Gamma e1 e3 T *)
   | R_refl : forall Gamma e T,
       has_type Gamma e T ->
       Refines Gamma e e T
@@ -400,8 +396,7 @@ Inductive appears_free_in : id -> tm -> Prop :=
       appears_free_in x (tm_mult t1 t2)
   | afi_mult1 : forall x t1 t2,
       appears_free_in x t2 ->
-      appears_free_in x (tm_mult t1 t2)
-  .
+      appears_free_in x (tm_mult t1 t2).
 
 Hint Constructors appears_free_in.
 
@@ -573,8 +568,6 @@ Proof with eauto.
   Case "T_Pred". 
     inversion HT; subst. assumption.
 Qed.
-
-
 
 (** Proofs **)
 
