@@ -526,19 +526,19 @@ Proof with eauto.
 Qed.
 
 Theorem preservation : forall Gamma t t' T,
-     has_type empty t T  ->
+     has_type Gamma t T  ->
      t ==> t'  ->
-     has_type empty t' T.
+     has_type Gamma t' T.
 Proof with eauto.
   intros Gamma t t' T HT.
   (* Theorem: If [empty |- t : T] and [t ==> t'], then [empty |- t' : T]. *)
-  remember (@empty ty) as Gamma. 
-  generalize dependent HeqGamma.
+  (* remember (@empty ty) as Gamma.  *)
+  (* generalize dependent HeqGamma. *)
   generalize dependent t'.
   (* Proof: By induction on the given typing derivation.  Many cases are
      contradictory ([T_Var], [T_Abs]).  We show just the interesting ones. *)
   has_type_cases (induction HT) Case; 
-    intros t' HeqGamma HE; subst; inversion HE; subst...
+    intros t' HE; subst; inversion HE; subst...
   Case "T_App".
     (* If the last rule used was [T_App], then [t = t1 t2], and three rules
        could have been used to show [t ==> t']: [ST_App1], [ST_App2], and 
@@ -846,7 +846,7 @@ Proof with eauto.
     SCase "tm_hole".
       apply R_base...
       apply T_Abs. eapply refinement_implies_welltypedness. apply Hab.
-  Case "R_mult".    
+  Case "R_mult".
     SCase "tm_hole".
       apply R_base.
       eapply T_Mult.
@@ -869,7 +869,6 @@ Proof with eauto.
   inversion H0; subst...
   inversion H0; subst...
 Qed.
-  
 
 Theorem soundness : forall Gamma p q p' T,
   Refines Gamma p q T -> 
@@ -878,9 +877,11 @@ Theorem soundness : forall Gamma p q p' T,
   Refines Gamma p' q' T.
 Proof with eauto.
   intros Gamma p q p' T H S.
+  generalize dependent q.
   step_cases (induction S) Case.
   Case "ST_AppAbs".
-    inversion H; subst.
+    intros.
+    inversion H0; subst.
     SCase "R_hole".
       exists (tm_hole T).
       split. apply rsc_refl.
@@ -926,12 +927,54 @@ Proof with eauto.
         eapply rsc_refl.
         eapply substitution_lemma...
   Case "ST_App1".
+    intros.
     inversion H; subst.
     SCase "R_hole".
       exists (tm_hole T).
-      split. apply rsc_refl.
+      split... 
       eapply R_base.
       inversion H0; subst.
       eapply T_App.
+      eapply preservation...
+      assumption.
+    SCase "R_refl".
+      exists (tm_app t1' t2).
+      split.
+      eapply rsc_step...
+      eapply R_refl. 
+      eapply preservation.
+      apply H0.
+      eapply ST_App1...
+    SCase "R_app".
+      (* ???? *)
+      admit.
+
+  Case "ST_App2".
+    inversion H; subst.
+    SCase "R_hole".
+      exists (tm_hole T).
+      split...
+      apply R_base.
+      eapply preservation...
+    SCase "R_refl".
+      exists (tm_app v1 t2').
+      split...
+      apply R_refl.
+      eapply preservation...
+    SCase "R_app".
+      remember H4 as Hv eqn:Hve; clear Hve.
+      eapply refinement_implies_value in Hv.
+      remember H4 as He eqn:Hqe1; clear Hqe1.
+      eapply refinement_implies_welltypedness_right in He.
+      inversion Hv; subst; try (solve by inversion).
+      exists (subst x e2' t12).
+      split.
+      eapply rsc_step.
+      eapply ST_AppAbs...
+
+      admit.
+
+   
+      
 
 Admitted.
