@@ -442,7 +442,7 @@ Qed.
 
 Lemma substitution_preserves_typing : forall Gamma x U v t S,
      has_type (extend Gamma x U) t S  ->
-     has_type empty v U   ->
+     has_type Gamma v U ->
      has_type Gamma (subst x v t) S.
 Proof with eauto.
   (* Theorem: If Gamma,x:U |- t : S and empty |- v : U, then 
@@ -473,14 +473,16 @@ Proof with eauto.
       apply beq_id_eq in Heqe. subst.
       unfold extend in H1. rewrite <- beq_id_refl in H1. 
       inversion H1; subst. clear H1.
-      eapply context_invariance...
-      intros x Hcontra.
-      destruct (free_in_context _ _ S empty Hcontra) as [T' HT']...
-      inversion HT'.
+      admit.
+      (* eapply context_invariance... *)
+      (* intros x Hcontra. *)
+      (* destruct (free_in_context _ _ S empty Hcontra) as [T' HT']... *)
+      (* inversion HT'. *)
     SCase "x<>y".
     (* If [x <> y], then [Gamma y = Some S] and the substitution has no
        effect.  We can show that [Gamma |- y : S] by [T_Var]. *)
-      apply T_Var... unfold extend in H1. rewrite <- Heqe in H1...
+      admit.
+      (* apply T_Var... unfold extend in H1. rewrite <- Heqe in H1... *)
   Case "tm_abs".
     rename i into y. rename t into T11.
     (* If [t = tm_abs y T11 t0], then we know that
@@ -499,37 +501,39 @@ Proof with eauto.
          [Gamma,y:T11 |- if beq_id x y then t0 else subst x v t0 : T12]
        We consider two cases: [x = y] and [x <> y].
     *)
-    apply T_Abs...
-    remember (beq_id x y) as e. destruct e.
-    SCase "x=y".
+    admit.
+    (* apply T_Abs... *)
+    (* remember (beq_id x y) as e. destruct e. *)
+    (* SCase "x=y". *)
     (* If [x = y], then the substitution has no effect.  Context
        invariance shows that [Gamma,y:U,y:T11] and [Gamma,y:T11] are
        equivalent.  Since the former context shows that [t0 : T12], so
        does the latter. *)
-      eapply context_invariance...
-      apply beq_id_eq in Heqe. subst.
-      intros x Hafi. unfold extend.
-      destruct (beq_id y x)...
-    SCase "x<>y".
+    (*   eapply context_invariance... *)
+    (*   apply beq_id_eq in Heqe. subst. *)
+    (*   intros x Hafi. unfold extend. *)
+    (*   destruct (beq_id y x)... *)
+    (* SCase "x<>y". *)
     (* If [x <> y], then the IH and context invariance allow us to show that
          [Gamma,x:U,y:T11 |- t0 : T12]       =>
          [Gamma,y:T11,x:U |- t0 : T12]       =>
          [Gamma,y:T11 |- subst x v t0 : T12] *)
-      apply IHt. eapply context_invariance...
-      intros z Hafi. unfold extend.
-      remember (beq_id y z) as e0. destruct e0...
-      apply beq_id_eq in Heqe0. subst.
-      rewrite <- Heqe...
+      (* apply IHt. eapply context_invariance... *)
+      (* intros z Hafi. unfold extend. *)
+      (* remember (beq_id y z) as e0. destruct e0... *)
+      (* apply beq_id_eq in Heqe0. subst. *)
+      (* rewrite <- Heqe... *)
 Qed.
 
-Theorem preservation : forall t t' T,
+Theorem preservation : forall Gamma t t' T,
      has_type empty t T  ->
      t ==> t'  ->
      has_type empty t' T.
 Proof with eauto.
-  intros t t' T HT.
+  intros Gamma t t' T HT.
   (* Theorem: If [empty |- t : T] and [t ==> t'], then [empty |- t' : T]. *)
-  remember (@empty ty) as Gamma. generalize dependent HeqGamma.
+  remember (@empty ty) as Gamma. 
+  generalize dependent HeqGamma.
   generalize dependent t'.
   (* Proof: By induction on the given typing derivation.  Many cases are
      contradictory ([T_Var], [T_Abs]).  We show just the interesting ones. *)
@@ -607,7 +611,15 @@ Proof with eato.
     apply T_Mult. assumption. assumption.
 Qed.
 
-Theorem extension_aliasing : forall Gamma x y z (T1:ty) (T2:ty),
+Theorem extension_aliasing : forall Gamma x y (T1:ty) (T2:ty),
+  true = beq_id x y ->
+  (extend (extend Gamma x T1) y T2) = (extend Gamma y T2).
+Proof.
+  admit.
+
+Qed.  
+
+Theorem extension_aliasing_w_app : forall Gamma x y z (T1:ty) (T2:ty),
   beq_id x y = true ->
   (extend (extend Gamma x T1) y T2) z = (extend Gamma y T2) z.
 Proof.
@@ -624,7 +636,7 @@ Qed.
 
 Theorem substitution_lemma : forall Gamma v u x Tx e1 e2 Te,
   Refines (extend Gamma x Tx) e1 e2 Te ->
-  Refines empty v u Tx ->
+  Refines Gamma v u Tx ->
   Refines Gamma (subst x v e1) (subst x u e2) Te.
 Proof with eauto.
   intros Gamma v u x Tx e1 e2 Te H.
@@ -632,7 +644,7 @@ Proof with eauto.
   remember (extend Gamma x Tx) as GammaX. 
   (* generalize dependent Tx. *)
 
-  refines_cases (induction H) Case; intros.
+  refines_cases (induction H) Case; intros; simpl...
   Case "R_base".
     simpl. apply R_base. apply substitution_preserves_typing with (U:= Tx).
     rewrite -> HeqGammaX in H. assumption.
@@ -643,7 +655,7 @@ Proof with eauto.
 
     tm_cases (induction H) SCase.
     SCase "tm_var".
-      unfold subst. remember (beq_id x x0) as e. destruct e.
+      unfold subst. remember (beq_id x x0) as e. destruct e...
       SSCase "x=x0".
         admit. (* fix empty/Gamma problem... *)
       SSCase "x<>x0".
@@ -690,27 +702,19 @@ Proof with eauto.
       admit.
     SCase "tm_hole".
       admit.
-  Case "R_if".
-    simpl. apply R_if... 
-  Case "R_app".
-    simpl. apply R_app with (T1:=T1)...
   Case "R_abs".
-    simpl. remember (beq_id x x0) as b.
+    remember (beq_id x x0) as b.
     destruct b.
     SCase "x == x0".
       apply R_abs...
       rewrite -> HeqGammaX in H.
-      assert ((extend (extend Gamma x Tx) x0 T1) = (extend Gamma x0 T1)).
-      (* apply extension_aliasing with (x:=x T1:=Tx y:=x0 T1:=T2). *)
-      admit.
-      rewrite -> H1 in H.
-      apply H.
+      assert ((extend (extend Gamma x Tx) x0 T1) = (extend Gamma x0 T1)) as HShadow.
+      apply extension_aliasing with (x:=x) (T1:=Tx) (y:=x0) (T2:=T1)...
+      rewrite -> HShadow in H...
     SCase "x <> x0".
       apply R_abs...
       (* stuck... *)
       admit.
-  Case "R_mult".
-    simpl. apply R_mult...
 Qed.
 
 
@@ -850,31 +854,84 @@ Proof with eauto.
         eapply refinement_implies_welltypedness. apply Hab2.
 Qed.
 
+Theorem refinement_implies_value : forall Gamma v e T,
+  value v ->
+  Refines Gamma v e T ->
+  value e.
+Proof with eauto.
+  intros.
+  inversion H; subst.
+  remember H0. clear Heqr.
+  remember H0. clear Heqr0.
+  inversion H0; subst...
+  inversion H0; subst...
+  inversion H0; subst...
+  inversion H0; subst...
+  inversion H0; subst...
+Qed.
+  
 
 Theorem soundness : forall Gamma p q p' T,
   Refines Gamma p q T -> 
   p ==> p' -> 
   exists q', q ==>* q' /\
   Refines Gamma p' q' T.
-Proof.
+Proof with eauto.
   intros Gamma p q p' T H S.
   step_cases (induction S) Case.
   Case "ST_AppAbs".
     inversion H; subst.
-    exists (tm_hole T).
-    split. apply rsc_refl.
-    apply R_base.
-    inversion H1; subst.
-    eapply substitution_preserves_typing with (U:=T1).
-    inversion H5; subst. 
-    assumption. admit.
+    SCase "R_hole".
+      exists (tm_hole T).
+      split. apply rsc_refl.
+      apply R_base.
+      inversion H1; subst.
+      eapply substitution_preserves_typing with (U:=T1).
+      inversion H5; subst. 
+      assumption...
+      assumption...
+    SCase "R_refl".
+      exists (subst x v2 t12).
+      split. eapply rsc_step. eapply ST_AppAbs. assumption. apply rsc_refl.
+      eapply substitution_lemma.
+      eapply R_refl.
+      inversion H1; subst. inversion H5; subst. apply H4.
+      eapply R_refl. inversion H1; subst. inversion H5; subst. assumption.
+    SCase "R_app".
+      inversion H4; subst.
+      SSCase "R_hole".
+        exists (tm_hole T).
+        split.
+        eapply rsc_step. eapply ST_AppH.
+        apply rsc_refl.
+        eapply R_base.
+        inversion H1; subst.
+        eapply substitution_preserves_typing with (U:=T1)...
+        apply refinement_implies_welltypedness in H7...
+      SSCase "R_refl".
+        exists (subst x e2' t12).
+        split.
+        eapply rsc_step.
+        eapply ST_AppAbs.
+        eapply refinement_implies_value in H7...
+        eapply rsc_refl.
+        eapply substitution_lemma...
+        eapply R_refl.
+        inversion H1; subst...
+      SSCase "R_abs".
+        exists (subst x e2' e1'0).
+        split.
+        eapply rsc_step. eapply ST_AppAbs.
+        eapply refinement_implies_value in H7...
+        eapply rsc_refl.
+        eapply substitution_lemma...
+  Case "ST_App1".
+    inversion H; subst.
+    SCase "R_hole".
+      exists (tm_hole T).
+      split. apply rsc_refl.
+      eapply R_base.
+      inversion H0; subst.
+      eapply T_App.
 
-    exists (subst x v2 t12).
-    split. eapply rsc_step. eapply ST_AppAbs. assumption. apply rsc_refl.
-    eapply substitution_lemma.
-    eapply R_refl.
-    inversion H1; subst. inversion H5; subst. apply H4.
-    eapply R_refl. inversion H1; subst. inversion H5; subst. admit.
-    exists v2.
-    split.
 Admitted.
