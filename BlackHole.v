@@ -186,6 +186,35 @@ Proof with auto.
   Case "rsc_step". apply rsc_step with (tm_app t1 y)...
  Qed.
 
+Theorem congruence_ST_If : forall b b' x y,
+  b ==>* b' ->
+  (tm_if b x y) ==>* (tm_if b' x y).
+Proof with auto.
+  introv bStep.
+  rsc_cases (induction bStep) Case.
+  Case "rsc_refl". apply rsc_refl.
+  Case "rsc_step". apply rsc_step with (tm_if y0 x y)...
+Qed.
+
+Theorem congruence_ST_Mult1 : forall x x' y,
+  x ==>* x' ->
+  (tm_mult x y) ==>* (tm_mult x' y).
+Proof with auto.
+  introv xStep.
+  rsc_cases (induction xStep) Case.
+  Case "rsc_refl". apply rsc_refl.
+  Case "rsc_step". apply rsc_step with (tm_mult y0 y)...
+Qed.
+
+Theorem congruence_ST_Mult2 : forall x y y',
+  y ==>* y' ->
+  (tm_mult x y) ==>* (tm_mult x y').
+Proof with auto.
+  introv yStep.
+  rsc_cases (induction yStep) Case.
+  Case "rsc_refl". apply rsc_refl.
+  Case "rsc_step". apply rsc_step with (tm_mult x y)...
+Qed.
 
 (* ###################################################################### *)
 (** *** Typing *)
@@ -905,8 +934,6 @@ Proof with eauto.
   introv H S.
   gen q T.
   step_cases (induction S) Case.
-  (* skip. inversion H; subst. *)
-  (* skip. skip.  *)
   Case "ST_AppAbs".
     intros.
     inversion H0; subst.
@@ -1008,44 +1035,198 @@ Proof with eauto.
       eapply refinement_implies_value...
       eapply R_app...
   Case "ST_If".
-    intros.
-    inversion H; subst.
+    introv R.
+    inversion R; subst.
     SCase "R_base".
       exists (tm_hole T).
       split...
       eapply R_base...
-      eapply refinement_implies_welltypedness in H.
+      eapply refinement_implies_welltypedness in R.
       eapply preservation...
     SCase "R_refl".
       exists (tm_if b' x y).
       split...
       eapply R_refl...
-      eapply refinement_implies_welltypedness in H.
+      eapply refinement_implies_welltypedness in R.
       eapply preservation...
-   SCase "R_If".
-     skip.
+    SCase "R_If".
+      specialize IHS with (q:=b'0) (T:=ty_bool).
+      specialize (IHS H3).
+      destruct IHS as (b'' & bStep & bRefine).
+      exists (tm_if b'' e1' e2').
+      split.
+      eapply congruence_ST_If...
+      eapply R_if...
   Case "ST_IfTrue".
-    skip.
+    introv R.
+    inversion R; subst.
+    SCase "R_base".
+      inverts H.
+      exists (tm_hole T).
+      split...
+    SCase "R_refl".
+      inverts H.
+      exists x.
+      split...
+    SCase "R_if".
+      inverts H3.
+      exists e1'...
+      exists e1'...
   Case "ST_IfFalse".
-    skip.
+    introv R.
+    inversion R; subst.
+    SCase "R_base".
+      inverts H.
+      exists (tm_hole T).
+      split...
+    SCase "R_refl".
+      inverts H.
+      exists y.
+      split...
+    SCase "R_if".
+      inverts H3.
+      exists e2'...
+      exists e2'...
   Case "ST_Succ".
-    skip.
+    introv R.
+    inversion R; subst.
+    SCase "R_base".
+      exists (tm_hole T).
+      inverts H.
+      split...
+      eapply R_base.
+      eapply T_Succ.
+      eapply preservation...
+    SCase "R_refl".
+      exists (tm_succ t1').
+      inverts H.
+      split...
+      eapply R_refl...
+      eapply T_Succ...
+      eapply preservation...
   Case "ST_Succ1".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    exists (tm_nat (S n)).
+    inverts H.
+    split...
   Case "ST_PredSucc".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    inverts H2.
+    eapply R_base...
+    exists t1.
+    inverts H; inverts H2.
+    split...
   Case "ST_Pred".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    eapply R_base.
+    eapply T_Pred.
+    eapply preservation...
+    exists (tm_pred t1').
+    inverts H.
+    split...
+    eapply R_refl.
+    eapply T_Pred.
+    eapply preservation...
   Case "ST_Pred2".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    
+    exists (tm_nat (pred n)).
+    inverts H.
+    split...
   Case "ST_PredZero".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    
+    exists (tm_nat 0).
+    inverts H.
+    split...
   Case "ST_Mult1".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    eapply R_base.
+    eapply T_Mult...
+    apply preservation with (t':=x') (t:=x)...
+
+    exists (tm_mult x' y).
+    inverts H.
+    split...
+    eapply R_refl.
+    eapply T_Mult.
+    apply preservation with (t':=x') (t:=x)...
+    auto.
+
+    specialize IHS with (q:=e1') (T:=ty_nat).
+    specialize (IHS H2).
+    destruct IHS as (e1'' & e1Step & e1Refines).
+    
+    exists (tm_mult e1'' e2').
+    split...
+    eapply congruence_ST_Mult1...
   Case "ST_Mult2".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    eapply R_base.
+    eapply T_Mult...
+    apply preservation with (t':=y') (t:=y)...
+
+    exists (tm_mult x y').
+    inverts H.
+    split...
+    eapply R_refl.
+    eapply T_Mult...
+    apply preservation with (t':=y') (t:=y)...
+
+    specialize IHS with (q:=e2') (T:=ty_nat).
+    specialize (IHS H5).
+    destruct IHS as (e2'' & e2Step & e2Refines).
+    
+    exists (tm_mult e1' e2'').
+    split...
+    eapply congruence_ST_Mult2...
   Case "ST_Mult3".
-    skip.
+    introv R.
+    inversion R; subst.
+    exists (tm_hole T).
+    inverts H.
+    split...
+
+    exists (tm_nat (mult x y)).
+    inverts H.
+    split...
+
+    inverts H2.
+    exists (tm_hole ty_nat).
+    split...
+    inverts H5.
+    exists (tm_hole ty_nat).
+    split...
+    exists (tm_nat (mult x y)).
+    split...
   Case "ST_AppH".
     introv R.
     inversion R; subst.
@@ -1100,17 +1281,103 @@ Proof with eauto.
       inverts H.
       eapply substitution_preserves_typing...
 
-      
+      inverts H5. inverts H.
+      exists (subst x (tm_hole T0) t).
+      split...
+      eapply R_refl.
+      eapply substitution_preserves_typing...
+
+      inverts H.
+      exists (subst x (tm_hole T0) t).
+      split...
+      eapply R_refl.
+      eapply substitution_preserves_typing...
+
+      inverts H5.
+      skip.
+      exists (subst x (tm_hole T0) e1'0).
+      split...
+      eapply substitution_lemma...
   Case "ST_IfH1".
-    skip.
+    introv R.
+    inverts R.
+    SCase "R_hole".
+      exists (tm_hole T).
+      inverts H.
+      split...
+    SCase "R_refl".
+      exists e1.
+      inverts H.
+      split...
+    SCase "R_if".
+      inverts H3.
+      exists e1'; split...
+      exists e1'; split...
   Case "ST_IfH2".
-    skip.
+    introv R.
+    inverts R.
+    SCase "R_hole".
+      exists (tm_hole T).
+      inverts H.
+      split...
+    SCase "R_refl".
+      inverts H.
+      exists e2.
+      split...
+    SCase "R_if".
+      inverts H3.
+      exists e2'; split...
+      exists e2'; split...
   Case "ST_MultH1".
-    skip.
+    introv R.
+    inverts R.
+    SCase "R_hole".
+      exists (tm_hole T).
+      inverts H.
+      split...
+    SCase "R_refl".
+      inverts H.
+      exists (tm_hole ty_nat).
+      split...
+    SCase "R_mult".
+      inverts H2.
+      exists (tm_hole ty_nat).
+      split...
+      exists (tm_hole ty_nat).
+      split...
   Case "ST_MultH2".
-    skip.
+    introv R.
+    inverts R.
+    SCase "R_hole".
+      exists (tm_hole T).
+      inverts H.
+      split...
+    SCase "R_refl".
+      inverts H.
+      exists (tm_hole ty_nat).
+      split...
+    SCase "R_mult".
+      inverts H5.
+      exists (tm_hole ty_nat).
+      split...
+      exists (tm_hole ty_nat).
+      split...
   Case "ST_SuccH".
-    skip.
+    introv R.
+    inverts R.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    exists (tm_hole T).
+    inverts H.
+    split...
   Case "ST_PredH".
-    skip.
-Admitted.
+    introv R.
+    inverts R.
+    exists (tm_hole T).
+    inverts H.
+    split...
+    exists (tm_hole T).
+    inverts H.
+    split...
+Qed.
