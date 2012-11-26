@@ -81,6 +81,7 @@ COQC:=$(COQBIN)coqc
 ###################################
 
 VFILES:= SfLib.v\
+  LibTactics.v\
   Defs.v
 VOFILES:=$(VFILES:.v=.vo)
 VOFILES0:=$(filter-out ,$(VOFILES))
