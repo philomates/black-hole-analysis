@@ -1,5 +1,6 @@
 Require Export Defs.
 Require Export SfLib.
+Require Import LibTactics.
 
 Module STLCHoles.
 
@@ -126,8 +127,9 @@ Inductive step : tm -> tm -> Prop :=
   | ST_Mult3 : forall x y,
       (tm_mult (tm_nat x) (tm_nat y)) ==> (tm_nat (mult x y))
   (* Hole reductions *)
-  | ST_AppH : forall v T1 T2,
-      tm_app (tm_hole (ty_arrow T1 T2)) v ==> tm_hole T2
+  | ST_AppH : forall v2 T1 T2,
+      value v2 ->
+      (tm_app (tm_hole (ty_arrow T1 T2)) v2) ==> tm_hole T2
   | ST_AppAbsH : forall x t T1,
       tm_app (tm_abs x T1 t) (tm_hole T1) ==> (subst x (tm_hole T1) t)
   | ST_IfH1 : forall e1 e2,
@@ -160,6 +162,30 @@ Notation stepmany := (refl_step_closure step).
 Notation "t1 '==>*' t2" := (stepmany t1 t2) (at level 40).
 
 Hint Constructors step.
+
+Theorem congruence_ST_App1 : forall t1 t1' t2,
+  t1 ==>* t1' ->
+  tm_app t1 t2 ==>* tm_app t1' t2.
+Proof.
+  intros.
+  rsc_cases (induction H) Case.
+  Case "rsc_refl". apply rsc_refl.
+  Case "rsc_step". apply rsc_step with (tm_app y t2).
+    apply ST_App1. apply H.
+    apply IHrefl_step_closure.
+Qed.
+
+Theorem congruence_ST_App2 : forall t1 t2 t2',
+  value t1 ->
+  t2 ==>* t2' ->
+  tm_app t1 t2 ==>* tm_app t1 t2'.
+Proof with auto.
+  introv t1Value t2Step.
+  rsc_cases (induction t2Step) Case.
+  Case "rsc_refl". apply rsc_refl.
+  Case "rsc_step". apply rsc_step with (tm_app t1 y)...
+ Qed.
+
 
 (* ###################################################################### *)
 (** *** Typing *)
@@ -295,7 +321,7 @@ Proof with eauto.
         inversion H; subst; try (solve by inversion).
         exists (subst x t2 t12)...
         inversion Ht1. subst.
-        exists (tm_hole T2). apply ST_AppH.
+        exists (tm_hole T2). apply ST_AppH...
       SSCase "t2 steps".
         (* If [t1] is a value and [t2 ==> t2'], then [t1 t2 ==> t1 t2'] 
            by [ST_App2]. *)
@@ -876,9 +902,11 @@ Theorem soundness : forall Gamma p q p' T,
   exists q', q ==>* q' /\
   Refines Gamma p' q' T.
 Proof with eauto.
-  intros Gamma p q p' T H S.
-  generalize dependent q.
+  introv H S.
+  gen q T.
   step_cases (induction S) Case.
+  (* skip. inversion H; subst. *)
+  (* skip. skip.  *)
   Case "ST_AppAbs".
     intros.
     inversion H0; subst.
@@ -904,6 +932,7 @@ Proof with eauto.
         exists (tm_hole T).
         split.
         eapply rsc_step. eapply ST_AppH.
+        eapply refinement_implies_value...
         apply rsc_refl.
         eapply R_base.
         inversion H1; subst.
@@ -927,13 +956,14 @@ Proof with eauto.
         eapply rsc_refl.
         eapply substitution_lemma...
   Case "ST_App1".
-    intros.
-    inversion H; subst.
+    introv R.
+    inverts R.
     SCase "R_hole".
       exists (tm_hole T).
       split... 
+      (* right: refines *)
       eapply R_base.
-      inversion H0; subst.
+      inversion H; subst.
       eapply T_App.
       eapply preservation...
       assumption.
@@ -943,14 +973,20 @@ Proof with eauto.
       eapply rsc_step...
       eapply R_refl. 
       eapply preservation.
-      apply H0.
+      apply H.
       eapply ST_App1...
     SCase "R_app".
-      (* ???? *)
-      admit.
+      specialize IHS with (q:=e1') (T:=(ty_arrow T1 T)).
+      specialize (IHS H2).
 
+      destruct IHS as (e1'' & e1Step & e1Refine).
+      exists (tm_app e1'' e2').
+      split.
+      eapply congruence_ST_App1...
+      eapply R_app...
   Case "ST_App2".
-    inversion H; subst.
+    intros.
+    inversion H0; subst.
     SCase "R_hole".
       exists (tm_hole T).
       split...
@@ -962,19 +998,119 @@ Proof with eauto.
       apply R_refl.
       eapply preservation...
     SCase "R_app".
-      remember H4 as Hv eqn:Hve; clear Hve.
-      eapply refinement_implies_value in Hv.
-      remember H4 as He eqn:Hqe1; clear Hqe1.
-      eapply refinement_implies_welltypedness_right in He.
-      inversion Hv; subst; try (solve by inversion).
-      exists (subst x e2' t12).
+      specialize IHS with (q:=e2') (T:=T1).
+      specialize (IHS H7).
+
+      destruct IHS as (e2'' & e2Step & e2Refine).
+      exists (tm_app e1' e2'').
       split.
+      eapply congruence_ST_App2...
+      eapply refinement_implies_value...
+      eapply R_app...
+  Case "ST_If".
+    intros.
+    inversion H; subst.
+    SCase "R_base".
+      exists (tm_hole T).
+      split...
+      eapply R_base...
+      eapply refinement_implies_welltypedness in H.
+      eapply preservation...
+    SCase "R_refl".
+      exists (tm_if b' x y).
+      split...
+      eapply R_refl...
+      eapply refinement_implies_welltypedness in H.
+      eapply preservation...
+   SCase "R_If".
+     skip.
+  Case "ST_IfTrue".
+    skip.
+  Case "ST_IfFalse".
+    skip.
+  Case "ST_Succ".
+    skip.
+  Case "ST_Succ1".
+    skip.
+  Case "ST_PredSucc".
+    skip.
+  Case "ST_Pred".
+    skip.
+  Case "ST_Pred2".
+    skip.
+  Case "ST_PredZero".
+    skip.
+  Case "ST_Mult1".
+    skip.
+  Case "ST_Mult2".
+    skip.
+  Case "ST_Mult3".
+    skip.
+  Case "ST_AppH".
+    introv R.
+    inversion R; subst.
+    SCase "R_hole".
+      exists (tm_hole T).
+      split... 
+      inverts H0.
+      inverts H4...
+    SCase "R_refl".
+      exists (tm_hole T2).
+      inverts H0. inverts H4.
+      split...
+    SCase "R_app".
+      inverts H3.
+      (* tm_hole (ty_arrow T0 T) *)
+        inverts H0.
+        exists (tm_hole T).
+        split...
+        eapply refinement_implies_value in H6...
+      (* tm_hole (ty_arrow T1 T2) *)
+        inverts H0.
+        exists (tm_hole T).
+        split...
+        eapply refinement_implies_value in H6...
+  Case "ST_AppAbsH".
+    introv R.
+    inversion R; subst.
+    SCase "R_hole".
+      exists (tm_hole T).
+      split...
+      eapply R_base.
+      inverts H.
+      inverts H3.
+      eapply substitution_preserves_typing...
+    SCase "R_refl".
+      exists (subst x (tm_hole T1) t).
+      split...
+      eapply R_refl.
+      inverts H.
+      inverts H3.
+      eapply substitution_preserves_typing...
+    SCase "R_app".
+      inverts H2.
+
+      exists (tm_hole T).
+      split...
       eapply rsc_step.
-      eapply ST_AppAbs...
+      eapply ST_AppH.
+      inverts H5...
+      eapply rsc_refl.
+      eapply R_base.
+      inverts H.
+      eapply substitution_preserves_typing...
 
-      admit.
-
-   
       
-
+  Case "ST_IfH1".
+    skip.
+  Case "ST_IfH2".
+    skip.
+  Case "ST_MultH1".
+    skip.
+  Case "ST_MultH2".
+    skip.
+  Case "ST_SuccH".
+    skip.
+  Case "ST_PredH".
+    skip.
 Admitted.

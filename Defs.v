@@ -53,11 +53,17 @@ Inductive refl_step_closure {X:Type} (R: relation X) : relation X :=
                     R x y ->
                     refl_step_closure R y z ->
                     refl_step_closure R x z.
+Hint Constructors refl_step_closure.
 
 Tactic Notation "rsc_cases" tactic(first) ident(c) :=
   first;
   [ Case_aux c "rsc_refl" | Case_aux c "rsc_step" ].
 
+Theorem rsc_R : forall (X:Type) (R:relation X) (x y : X),
+       R x y -> (refl_step_closure R) x y.
+Proof.
+  intros X R x y H.
+  apply rsc_step with y. apply H. apply rsc_refl. Qed.
 
 Definition normal_form {X:Type} (R:relation X) (t:X) : Prop :=
   ~ exists t', R t t'.
